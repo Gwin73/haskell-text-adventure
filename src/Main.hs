@@ -124,12 +124,12 @@ parse _ = Nothing
 -------------------------------------------------------  
 go :: (MonadState World m) => Id -> Id -> m String
 go locationId characterId = do
-    location <- liftM (getLocByCharId characterId) get
+    location <- (getLocByCharId characterId) <$> get
     w <- get
     if hasExit locationId location
         then do
             characters . at characterId . traversed %= (teleport locationId w)
-            (message, w') <- liftM (runState $ (location ^. onGo) characterId) get
+            (message, w') <- (runState $ (location ^. onGo) characterId) <$> get
             put w'
             return $ intercalate " " [message ++ characterId, "successfully moved to", locationId]
         else return $ locationId ++ " is not a nearby location"
@@ -146,7 +146,7 @@ teleport locationId world =
 ------------------------------------------------------------------------------------
 look :: (MonadState World m) => Id -> m String
 look characterId = do
-    location <- liftM (getLocByCharId characterId) get
+    location <- (getLocByCharId characterId) <$> get
     let 
         name = location ^. locationId
         descript = location ^. description
@@ -156,7 +156,7 @@ look characterId = do
 
 showInventory :: (MonadState World m) => Id -> m String
 showInventory characterId = do    
-    character <- liftM (getCharByCharId characterId) get
+    character <- (getCharByCharId characterId) <$> get
     let 
         itemsDescription = map (\i -> intercalate " " [i ^. itemId , i ^. itemDescription , show $ i ^. weight]) $ M.elems $ (character ^. inventory)
     return $ intercalate "\n" ([underlined $ "inventory of " ++ characterId] ++ itemsDescription)
@@ -167,8 +167,8 @@ underlined s = intercalate "\n" [s, map (const '-') s]
 ------------------------------------------------------------------------------------
 take :: (MonadState World m) => Id -> Id -> m String
 take itemId characterId = do
-    character <- liftM (getCharByCharId characterId) get 
-    location <- liftM (getLocByCharId characterId) get
+    character <- (getCharByCharId characterId) <$> get 
+    location <- (getLocByCharId characterId) <$> get
     case getItem itemId location of
         Just item -> do
             let totalWeight = sum $ map (^. weight) (M.elems $ character ^. inventory)
@@ -176,7 +176,7 @@ take itemId characterId = do
                 then do
                     characters . at characterId . traversed %= addItem item
                     locations . at (location ^. locationId) . traversed %= removeItem itemId
-                    (message, w') <- liftM (runState $ (item ^. onTake) characterId (location ^. locationId)) get
+                    (message, w') <- (runState $ (item ^. onTake) characterId (location ^. locationId)) <$> get
                     put w'
                     return $ unwords [message ++ characterId, "successfully picked up", itemId]
                 else return $ unwords [characterId, "is carrying to much"]
@@ -184,13 +184,13 @@ take itemId characterId = do
 
 drop :: (MonadState World m) => Id -> Id -> m String
 drop itemId characterId = do
-    character <- liftM (getCharByCharId characterId) get 
-    location <- liftM (getLocByCharId characterId) get
+    character <- (getCharByCharId characterId) <$> get 
+    location <- (getLocByCharId characterId) <$> get
     case getItem itemId character of
         Just item -> do
             characters . at characterId . traversed %= removeItem itemId 
             locations . at (location ^. locationId) . traversed %= addItem item 
-            (message, w') <- liftM (runState $ (item ^. onDrop) characterId (location ^. locationId)) get
+            (message, w') <- (runState $ (item ^. onDrop) characterId (location ^. locationId)) <$> get
             put w'
             return $ unwords [message ++ characterId, "successfully dropped", itemId]
         Nothing -> return $ unwords ["There is no", itemId, "in", characterId ++ "s", "inventory"]    
